@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>roofkid — Studio Board</title>
+<!-- Официальный скрипт Telegram Mini Apps -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-wood: #181512;
+    --board-cork: #231c15;
+    --board-frame: #120e0a;
+    --col-bg: rgba(20, 16, 12, 0.72);
+    --col-border: rgba(255, 230, 200, 0.09);
+    --text-main: #f3ede2;
+    --text-muted: #9b8e7f;
+    --accent: #d97736;
+    
+    --note-yellow: #fef08a;
+    --note-pink: #fbcfe8;
+    --note-green: #bbf7d0;
+    --note-blue: #bae6fd;
+    --note-orange: #fed7aa;
+    --note-purple: #e9d5ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background-color: var(--bg-wood);
+    color: var(--text-main);
+    min-height: 100vh;
+    padding: 16px 20px 32px 20px;
+    background-image: 
+      radial-gradient(ellipse at 50% 0%, rgba(217, 119, 54, 0.1), transparent 70%),
+      radial-gradient(#2c2219 1px, transparent 1px);
+    background-size: 100% 100%, 24px 24px;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto 20px auto;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .logo h1 {
+    font-family: 'Caveat', cursive;
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--note-yellow);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  }
+
+  .tagline {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .sync-status {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    opacity: 0.8;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(217, 119, 54, 0.35);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(270px, 1fr));
+    gap: 18px;
+    max-width: 1400px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  /* Адаптация под экран смартфона в Telegram */
+  @media (max-width: 860px) {
+    body { padding: 12px 12px 28px 12px; }
+    .board {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      gap: 14px;
+      padding-bottom: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .column {
+      min-width: 84vw;
+      scroll-snap-align: center;
+      min-height: 70vh;
+    }
+  }
+
+  .column {
+    background: var(--col-bg);
+    border: 1px solid var(--col-border);
+    border-radius: 12px;
+    padding: 14px;
+    min-height: 72vh;
+    backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+    position: relative;
+  }
+
+  .column.drag-over {
+    border-color: var(--accent);
+    background: rgba(217, 119, 54, 0.12);
+  }
+
+  .col-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+  }
+
+  .col-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .badge {
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: var(--text-muted);
+  }
+
+  .limit-warning {
+    color: #f87171 !important;
+    font-size: 0.75rem;
+    display: none;
+    font-weight: 600;
+  }
+
+  .notes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    min-height: 150px;
+  }
+
+  .note {
+    position: relative;
+    padding: 20px 14px 12px 14px;
+    border-radius: 3px;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0,0,0,0.2);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    color: #26211a;
+  }
+
+  .note:active { cursor: grabbing; }
+
+  @media (hover: hover) {
+    .note:hover {
+      transform: scale(1.02) rotate(0deg) !important;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+    }
+  }
+
+  .note::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 48px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.42);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    border-left: 1px dashed rgba(0,0,0,0.1);
+    border-right: 1px dashed rgba(0,0,0,0.1);
+    backdrop-filter: blur(2px);
+  }
+
+  .note-yellow { background: var(--note-yellow); }
+  .note-pink   { background: var(--note-pink); }
+  .note-green  { background: var(--note-green); }
+  .note-blue   { background: var(--note-blue); }
+  .note-orange { background: var(--note-orange); }
+  .note-purple { background: var(--note-purple); }
+
+  .note-title {
+    font-family: 'Caveat', cursive;
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 6px;
+    padding-right: 48px;
+    word-break: break-word;
+  }
+
+  .note-body {
+    font-family: 'Caveat', cursive;
+    font-size: 1.3rem;
+    line-height: 1.25;
+    color: #4a3e30;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 10px;
+  }
+
+  .note-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .note-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px dashed rgba(0,0,0,0.12);
+    padding-top: 6px;
+    margin-top: 4px;
+  }
+
+  .btn-icon {
+    background: rgba(0,0,0,0.08);
+    border: none;
+    border-radius: 5px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #26211a;
+    font-weight: 600;
+  }
+  .btn-icon:hover, .btn-icon:active { background: rgba(0,0,0,0.22); }
+  .btn-icon:disabled { opacity: 0.25; pointer-events: none; }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    padding: 16px;
+  }
+
+  .modal {
+    background: #201a14;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 22px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.7);
+  }
+
+  .modal h2 {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+    color: var(--text-main);
+  }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-group label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%;
+    background: #14100c;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 6px;
+    color: #fff;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 1rem;
+  }
+
+  .form-group textarea {
+    min-height: 85px;
+    resize: vertical;
+  }
+
+  .color-picker {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .color-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+  .color-btn.active {
+    border-color: #fff;
+    transform: scale(1.12);
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--text-main);
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <h1>roofkid</h1>
+    <span class="tagline">Studio Track Flow</span>
+    <span class="sync-status" id="syncStatus">☁️ Синхронизировано</span>
+  </div>
+  <div>
+    <button class="btn-primary" onclick="openModal()">+ Стикер</button>
+  </div>
+</header>
+
+<div class="board">
+  <div class="column" data-col="backlog">
+    <div class="col-header">
+      <div class="col-title">📁 Бэклог <span class="badge" id="count-backlog">0</span></div>
+    </div>
+    <div class="notes-container" id="backlog"></div>
+  </div>
+
+  <div class="column" data-col="in_progress">
+    <div class="col-header">
+      <div class="col-title">🔥 В работе <span class="badge" id="count-in_progress">0/2</span></div>
+      <span class="limit-warning" id="warn-in_progress">Макс. 2 трека!</span>
+    </div>
+    <div class="notes-container" id="in_progress"></div>
+  </div>
+
+  <div class="column" data-col="mixing">
+    <div class="col-header">
+      <div class="col-title">🎚️ Сведение <span class="badge" id="count-mixing">0</span></div>
+    </div>
+    <div class="notes-container" id="mixing"></div>
+  </div>
+
+  <div class="column" data-col="done">
+    <div class="col-header">
+      <div class="col-title">✨ Готово <span class="badge" id="count-done">0</span></div>
+    </div>
+    <div class="notes-container" id="done"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Стикер трека</h2>
+    <input type="hidden" id="noteId">
+    
+    <div class="form-group">
+      <label>Название трека / Демки</label>
+      <input type="text" id="noteTitleInput" placeholder="Например: Ты горишь (2:05)">
+    </div>
+
+    <div class="form-group">
+      <label>Заметки / Что докрутить</label>
+      <textarea id="noteBodyInput" placeholder="Например: проредить 32-е хэты во 2 куплете, глянуть баланс гитары..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Столбец</label>
+      <select id="noteColumnSelect">
+        <option value="backlog">Бэклог</option>
+        <option value="in_progress">В работе (макс. 2)</option>
+        <option value="mixing">Сведение</option>
+        <option value="done">Готово</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Цвет стикера</label>
+      <div class="color-picker" id="colorPicker">
+        <div class="color-btn note-yellow active" data-color="yellow"></div>
+        <div class="color-btn note-orange" data-color="orange"></div>
+        <div class="color-btn note-green" data-color="green"></div>
+        <div class="color-btn note-blue" data-color="blue"></div>
+        <div class="color-btn note-pink" data-color="pink"></div>
+        <div class="color-btn note-purple" data-color="purple"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveNote()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  const COLS = ['backlog', 'in_progress', 'mixing', 'done'];
+  const STORAGE_KEY = 'roofkid_kanban_notes_v1';
+  
+  let notes = [];
+  let selectedColor = 'yellow';
+
+  const defaultNotes = [
+    {
+      id: '1',
+      title: 'Ты горишь (2:05)',
+      body: 'Скелет готов! На сведении: глянуть громкость вокала и проредить пулеметные 32-е хэты во 2-м куплете.',
+      col: 'mixing',
+      color: 'yellow',
+      rot: -1.5
+    },
+    {
+      id: '2',
+      title: 'Фит с корешем',
+      body: 'Жду его парт на второй куплет. Минус с местом отправлен.',
+      col: 'in_progress',
+      color: 'orange',
+      rot: 1.2
+    },
+    {
+      id: '3',
+      title: 'Демка 3 (грязный бум-бэп)',
+      body: 'Переслушать черновой вокал, убрать лишнее.',
+      col: 'backlog',
+      color: 'green',
+      rot: -0.8
+    }
+  ];
+
+  function haptic(type = 'light') {
+    if (tg && tg.HapticFeedback) {
+      tg.HapticFeedback.impactOccurred(type);
+    }
+  }
+
+  function loadData(callback) {
+    if (tg && tg.CloudStorage && tg.initData) {
+      tg.CloudStorage.getItem(STORAGE_KEY, (err, val) => {
+        if (!err && val) {
+          try { notes = JSON.parse(val); } catch(e) { notes = defaultNotes; }
+        } else {
+          const local = localStorage.getItem(STORAGE_KEY);
+          notes = local ? JSON.parse(local) : defaultNotes;
+        }
+        callback();
+      });
+    } else {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      notes = saved ? JSON.parse(saved) : defaultNotes;
+      document.getElementById('syncStatus').textContent = '💾 Локально';
+      callback();
+    }
+  }
+
+  function save() {
+    const dataStr = JSON.stringify(notes);
+    localStorage.setItem(STORAGE_KEY, dataStr);
+    if (tg && tg.CloudStorage && tg.initData) {
+      document.getElementById('syncStatus').textContent = '⏳ Сохранение...';
+      tg.CloudStorage.setItem(STORAGE_KEY, dataStr, (err) => {
+        document.getElementById('syncStatus').textContent = err ? '⚠️ Ошибка сети' : '☁️ В облаке ТГ';
+      });
+    }
+    render();
+  }
+
+  function init() {
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      if (tg.setHeaderColor) tg.setHeaderColor('#181512');
+      if (tg.setBackgroundColor) tg.setBackgroundColor('#181512');
+    }
+    setupDragAndDrop();
+    setupColorPicker();
+    loadData(() => render());
+  }
+
+  function render() {
+    COLS.forEach(col => {
+      const container = document.getElementById(col);
+      container.innerHTML = '';
+      const colNotes = notes.filter(n => n.col === col);
+      
+      colNotes.forEach(n => {
+        container.appendChild(createNoteEl(n));
+      });
+
+      const countEl = document.getElementById(`count-${col}`);
+      if (col === 'in_progress') {
+        countEl.textContent = `${colNotes.length}/2`;
+        const warn = document.getElementById('warn-in_progress');
+        warn.style.display = colNotes.length > 2 ? 'inline' : 'none';
+      } else {
+        countEl.textContent = colNotes.length;
+      }
+    });
+  }
+
+  function createNoteEl(n) {
+    const el = document.createElement('div');
+    el.className = `note note-${n.color || 'yellow'}`;
+    el.draggable = true;
+    el.style.transform = `rotate(${n.rot || 0}deg)`;
+    el.dataset.id = n.id;
+
+    const colIdx = COLS.indexOf(n.col);
+
+    el.innerHTML = `
+      <div class="note-actions">
+        <button class="btn-icon" onclick="editNote('${n.id}')" title="Изменить">✏️</button>
+        <button class="btn-icon" onclick="deleteNote('${n.id}')" title="Удалить">✕</button>
+      </div>
+      <div class="note-title">${escapeHtml(n.title)}</div>
+      <div class="note-body">${escapeHtml(n.body || '')}</div>
+      <div class="note-footer">
+        <button class="btn-icon" onclick="moveStep('${n.id}', -1)" ${colIdx === 0 ? 'disabled' : ''}>←</button>
+        <span style="font-size:0.7rem; opacity:0.55; font-weight:600;">СДВИГ</span>
+        <button class="btn-icon" onclick="moveStep('${n.id}', 1)" ${colIdx === COLS.length - 1 ? 'disabled' : ''}>→</button>
+      </div>
+    `;
+
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', n.id);
+      setTimeout(() => el.style.opacity = '0.3', 0);
+    });
+
+    el.addEventListener('dragend', () => {
+      el.style.opacity = '1';
+    });
+
+    return el;
+  }
+
+  function moveStep(id, dir) {
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    const idx = COLS.indexOf(note.col);
+    const nextIdx = idx + dir;
+    if (nextIdx >= 0 && nextIdx < COLS.length) {
+      note.col = COLS[nextIdx];
+      haptic('medium');
+      save();
+    }
+  }
+
+  function setupDragAndDrop() {
+    document.querySelectorAll('.column').forEach(col => {
+      col.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        col.classList.add('drag-over');
+      });
+      col.addEventListener('dragleave', () => {
+        col.classList.remove('drag-over');
+      });
+      col.addEventListener('drop', (e) => {
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        const id = e.dataTransfer.getData('text/plain');
+        const targetCol = col.dataset.col;
+        const note = notes.find(n => n.id === id);
+        if (note && note.col !== targetCol) {
+          note.col = targetCol;
+          haptic('medium');
+          save();
+        }
+      });
+    });
+  }
+
+  function setupColorPicker() {
+    document.querySelectorAll('.color-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedColor = btn.dataset.color;
+        haptic('light');
+      });
+    });
+  }
+
+  function openModal(isEdit = false) {
+    haptic('light');
+    document.getElementById('modalBackdrop').style.display = 'flex';
+    document.getElementById('modalTitle').textContent = isEdit ? 'Редактировать стикер' : 'Новый стикер';
+    if (!isEdit) {
+      document.getElementById('noteId').value = '';
+      document.getElementById('noteTitleInput').value = '';
+      document.getElementById('noteBodyInput').value = '';
+      document.getElementById('noteColumnSelect').value = 'backlog';
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('modalBackdrop').style.display = 'none';
+  }
+
+  function saveNote() {
+    const id = document.getElementById('noteId').value;
+    const title = document.getElementById('noteTitleInput').value.trim();
+    const body = document.getElementById('noteBodyInput').value.trim();
+    const col = document.getElementById('noteColumnSelect').value;
+
+    if (!title) return alert('Введите название трека');
+
+    if (id) {
+      const n = notes.find(x => x.id === id);
+      if (n) {
+        n.title = title;
+        n.body = body;
+        n.col = col;
+        n.color = selectedColor;
+      }
+    } else {
+      const rot = (Math.random() * 3 - 1.5).toFixed(1);
+      notes.push({
+        id: Date.now().toString(),
+        title,
+        body,
+        col,
+        color: selectedColor,
+        rot: parseFloat(rot)
+      });
+    }
+
+    haptic('medium');
+    closeModal();
+    save();
+  }
+
+  function editNote(id) {
+    const n = notes.find(x => x.id === id);
+    if (!n) return;
+    document.getElementById('noteId').value = n.id;
+    document.getElementById('noteTitleInput').value = n.title;
+    document.getElementById('noteBodyInput').value = n.body || '';
+    document.getElementById('noteColumnSelect').value = n.col;
+    selectedColor = n.color || 'yellow';
+    
+    document.querySelectorAll('.color-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.color === selectedColor);
+    });
+
+    openModal(true);
+  }
+
+  function deleteNote(id) {
+    if (confirm('Удалить этот стикер?')) {
+      notes = notes.filter(n => n.id !== id);
+      haptic('light');
+      save();
+    }
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>'"]/g, tag => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+  }
+
+  init();
+</script>
+</body>
+</html>
