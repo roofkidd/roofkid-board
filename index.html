@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>roofkid — Kanban Board</title>
+<title>rfk — Kanban Board</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -533,7 +533,7 @@
   }
 
   function loadData(callback) {
-    if (tg && tg.CloudStorage && tg.initData) {
+    if (tg && tg.CloudStorage && tg.Data) {
       tg.CloudStorage.getItem(STORAGE_KEY, (err, val) => {
         if (!err && val) {
           try { notes = JSON.parse(val); } catch(e) { notes = [...defaultNotes]; }
@@ -554,7 +554,7 @@
   function save() {
     const dataStr = JSON.stringify(notes);
     localStorage.setItem(STORAGE_KEY, dataStr);
-    if (tg && tg.CloudStorage && tg.initData) {
+    if (tg && tg.CloudStorage && tg.Data) {
       document.getElementById('syncStatus').textContent = '⏳ Сохранение...';
       tg.CloudStorage.setItem(STORAGE_KEY, dataStr, (err) => {
         document.getElementById('syncStatus').textContent = err ? '⚠️ Ошибка сети' : '☁️ Личная доска';
@@ -563,10 +563,14 @@
     render();
   }
 
-  function init() {
+function init() {
     if (tg) {
       tg.ready();
       tg.expand();
+      // Запрос полноэкранного режима для новых версий Telegram
+      if (tg.requestFullscreen) {
+        tg.requestFullscreen();
+      }
       if (tg.setHeaderColor) tg.setHeaderColor('#181512');
       if (tg.setBackgroundColor) tg.setBackgroundColor('#181512');
     }
