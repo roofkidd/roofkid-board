@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>roofkid — Studio Board</title>
-<!-- Официальный скрипт Telegram Mini Apps -->
+<title>roofkid — Kanban Board</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,6 +50,7 @@
     margin: 0 auto 20px auto;
     padding-bottom: 14px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 12px;
   }
 
   .logo {
@@ -82,6 +82,12 @@
     opacity: 0.8;
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .btn-primary {
     background: var(--accent);
     color: #fff;
@@ -99,6 +105,21 @@
     transform: scale(0.97);
   }
 
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-ghost:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
   .board {
     display: grid;
     grid-template-columns: repeat(4, minmax(270px, 1fr));
@@ -108,7 +129,6 @@
     align-items: start;
   }
 
-  /* Адаптация под экран смартфона в Telegram */
   @media (max-width: 860px) {
     body { padding: 12px 12px 28px 12px; }
     .board {
@@ -378,10 +398,11 @@
 <header>
   <div class="logo">
     <h1>roofkid</h1>
-    <span class="tagline">Studio Track Flow</span>
-    <span class="sync-status" id="syncStatus">☁️ Синхронизировано</span>
+    <span class="tagline">Flow Board</span>
+    <span class="sync-status" id="syncStatus">☁️ Личная доска</span>
   </div>
-  <div>
+  <div class="header-actions">
+    <button class="btn-ghost" onclick="clearAllNotes()" title="Очистить всю доску">🗑️</button>
     <button class="btn-primary" onclick="openModal()">+ Стикер</button>
   </div>
 </header>
@@ -396,15 +417,15 @@
 
   <div class="column" data-col="in_progress">
     <div class="col-header">
-      <div class="col-title">🔥 В работе <span class="badge" id="count-in_progress">0/2</span></div>
-      <span class="limit-warning" id="warn-in_progress">Макс. 2 трека!</span>
+      <div class="col-title">🔥 В фокусе <span class="badge" id="count-in_progress">0/2</span></div>
+      <span class="limit-warning" id="warn-in_progress">Перегруз! Макс. 2</span>
     </div>
     <div class="notes-container" id="in_progress"></div>
   </div>
 
   <div class="column" data-col="mixing">
     <div class="col-header">
-      <div class="col-title">🎚️ Сведение <span class="badge" id="count-mixing">0</span></div>
+      <div class="col-title">🎚️ Докрутка / Финал <span class="badge" id="count-mixing">0</span></div>
     </div>
     <div class="notes-container" id="mixing"></div>
   </div>
@@ -419,26 +440,26 @@
 
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal">
-    <h2 id="modalTitle">Стикер трека</h2>
+    <h2 id="modalTitle">Стикер задачи</h2>
     <input type="hidden" id="noteId">
     
     <div class="form-group">
-      <label>Название трека / Демки</label>
-      <input type="text" id="noteTitleInput" placeholder="Например: Ты горишь (2:05)">
+      <label>Задача / Проект</label>
+      <input type="text" id="noteTitleInput" placeholder="Например: Покормить кота / Свести демку">
     </div>
 
     <div class="form-group">
-      <label>Заметки / Что докрутить</label>
-      <textarea id="noteBodyInput" placeholder="Например: проредить 32-е хэты во 2 куплете, глянуть баланс гитары..."></textarea>
+      <label>Заметки / Детали</label>
+      <textarea id="noteBodyInput" placeholder="Любые мелочи, чтобы не держать в голове..."></textarea>
     </div>
 
     <div class="form-group">
       <label>Столбец</label>
       <select id="noteColumnSelect">
-        <option value="backlog">Бэклог</option>
-        <option value="in_progress">В работе (макс. 2)</option>
-        <option value="mixing">Сведение</option>
-        <option value="done">Готово</option>
+        <option value="backlog">📁 Бэклог</option>
+        <option value="in_progress">🔥 В фокусе (макс. 2)</option>
+        <option value="mixing">🎚️ Докрутка / Финал</option>
+        <option value="done">✨ Готово</option>
       </select>
     </div>
 
@@ -464,35 +485,44 @@
 <script>
   const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
   const COLS = ['backlog', 'in_progress', 'mixing', 'done'];
-  const STORAGE_KEY = 'roofkid_kanban_notes_v1';
+  const STORAGE_KEY = 'roofkid_kanban_v2';
   
   let notes = [];
   let selectedColor = 'yellow';
 
+  // Нейтральные смешные стикеры для первого знакомства любого пользователя
   const defaultNotes = [
     {
-      id: '1',
-      title: 'Ты горишь (2:05)',
-      body: 'Скелет готов! На сведении: глянуть громкость вокала и проредить пулеметные 32-е хэты во 2-м куплете.',
-      col: 'mixing',
+      id: 'demo_1',
+      title: 'Покормить кота 🐈',
+      body: 'Сделать вид, что не ведешься на его манипуляции у миски (всё равно насыпать с горкой).',
+      col: 'in_progress',
       color: 'yellow',
-      rot: -1.5
+      rot: -1.4
     },
     {
-      id: '2',
-      title: 'Фит с корешем',
-      body: 'Жду его парт на второй куплет. Минус с местом отправлен.',
-      col: 'in_progress',
+      id: 'demo_2',
+      title: 'Купить пельмени и сыр',
+      body: 'Не забыть сметану. Иначе весь вечер потеряет стратегический смысл.',
+      col: 'backlog',
       color: 'orange',
       rot: 1.2
     },
     {
-      id: '3',
-      title: 'Демка 3 (грязный бум-бэп)',
-      body: 'Переслушать черновой вокал, убрать лишнее.',
+      id: 'demo_3',
+      title: 'Захватить мир 🌍',
+      body: 'Пока отложено на следующую неделю — сначала надо нормально выспаться.',
       col: 'backlog',
-      color: 'green',
+      color: 'purple',
       rot: -0.8
+    },
+    {
+      id: 'demo_4',
+      title: 'Открыть эту доску',
+      body: 'Ура, всё работает! Удали эти стикеры кнопкой 🗑️ сверху и закидывай свои дела.',
+      col: 'done',
+      color: 'green',
+      rot: 1.0
     }
   ];
 
@@ -506,16 +536,16 @@
     if (tg && tg.CloudStorage && tg.initData) {
       tg.CloudStorage.getItem(STORAGE_KEY, (err, val) => {
         if (!err && val) {
-          try { notes = JSON.parse(val); } catch(e) { notes = defaultNotes; }
+          try { notes = JSON.parse(val); } catch(e) { notes = [...defaultNotes]; }
         } else {
           const local = localStorage.getItem(STORAGE_KEY);
-          notes = local ? JSON.parse(local) : defaultNotes;
+          notes = local ? JSON.parse(local) : [...defaultNotes];
         }
         callback();
       });
     } else {
       const saved = localStorage.getItem(STORAGE_KEY);
-      notes = saved ? JSON.parse(saved) : defaultNotes;
+      notes = saved ? JSON.parse(saved) : [...defaultNotes];
       document.getElementById('syncStatus').textContent = '💾 Локально';
       callback();
     }
@@ -527,7 +557,7 @@
     if (tg && tg.CloudStorage && tg.initData) {
       document.getElementById('syncStatus').textContent = '⏳ Сохранение...';
       tg.CloudStorage.setItem(STORAGE_KEY, dataStr, (err) => {
-        document.getElementById('syncStatus').textContent = err ? '⚠️ Ошибка сети' : '☁️ В облаке ТГ';
+        document.getElementById('syncStatus').textContent = err ? '⚠️ Ошибка сети' : '☁️ Личная доска';
       });
     }
     render();
@@ -670,7 +700,7 @@
     const body = document.getElementById('noteBodyInput').value.trim();
     const col = document.getElementById('noteColumnSelect').value;
 
-    if (!title) return alert('Введите название трека');
+    if (!title) return alert('Введите название задачи');
 
     if (id) {
       const n = notes.find(x => x.id === id);
@@ -717,6 +747,14 @@
     if (confirm('Удалить этот стикер?')) {
       notes = notes.filter(n => n.id !== id);
       haptic('light');
+      save();
+    }
+  }
+
+  function clearAllNotes() {
+    if (confirm('Очистить все стикеры с доски?')) {
+      notes = [];
+      haptic('medium');
       save();
     }
   }
